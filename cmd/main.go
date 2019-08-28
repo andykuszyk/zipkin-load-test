@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/andykuszyk/zipkin-load-test/pkg/loadtest"
+	"net/http"
 )
 
 func main() {
@@ -17,7 +18,9 @@ func main() {
 	var loadTest loadtest.LoadTest
 
 	if *test == "zipkin" {
-		loadTest = &loadtest.ZipkinTest{}
+		loadTest = &loadtest.ZipkinTest{
+			Client: http.DefaultClient,
+		}
 	} else if *test == "sqs" {
 		loadTest = &loadtest.SqsTest{
 			SQSEndpoint: sqsEndpoint,
