@@ -12,6 +12,7 @@ func main() {
 	test := flag.String("test", "sqs", "Which test implementation to run (zipkin or sqs)")
 	sqsRegion := flag.String("sqsRegion", "eu-west-1", "Which region to use (sqs only)")
 	sqsEndpoint := flag.String("sqsEndpoint", "http://localhost:4100", "Which endpoint to use (sqs only)")
+	sqsQueueName := flag.String("sqsQueueName", "", "Which queue to use (sqs only)")
 	flag.Parse()
 
 	fmt.Printf("Running load test %s\n", *test)
@@ -24,7 +25,8 @@ func main() {
 	} else if *test == "sqs" {
 		loadTest = &loadtest.SqsTest{
 			SQSEndpoint: sqsEndpoint,
-			SQSRegion: sqsRegion,
+			SQSRegion:   sqsRegion,
+			QueueName:   *sqsQueueName,
 		}
 	}
 

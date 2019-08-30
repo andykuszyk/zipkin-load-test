@@ -12,30 +12,46 @@ type SqsTest struct {
 	SQSRegion   *string
 	SQSEndpoint *string
 
-	SQSService  *sqs.SQS
-	QueueURL    string
+	SQSService *sqs.SQS
+	QueueName  string
+	QueueURL   string
 }
 
 func (r *SqsTest) Setup() {
 	sess := session.Must(session.NewSession(
 		&aws.Config{
-			Region: r.SQSRegion,
+			Region:   r.SQSRegion,
 			Endpoint: r.SQSEndpoint,
-	}))
+		}))
 	r.SQSService = sqs.New(sess)
 
-	randomId, _ := uuid.GenerateUUID()
-	queueName := "sqs-load-test-" + randomId
+	if r.QueueName == "" {
+		randomId, _ := uuid.GenerateUUID()
+		queueName := "sqs-load-test-" + randomId
 
-	result, err := r.SQSService.CreateQueue(&sqs.CreateQueueInput{
-		QueueName: &queueName,
-	})
+		log.Printf("Using random queue: %s", queueName)
+		result, err := r.SQSService.CreateQueue(&sqs.CreateQueueInput{
+			QueueName: &queueName,
+		})
 
-	if err != nil {
-		log.Fatal(err)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		r.QueueURL = *result.QueueUrl
+	} else {
+
+		log.Printf("Using configured queue: %s", r.QueueName)
+		result, err := r.SQSService.GetQueueUrl(&sqs.GetQueueUrlInput{
+			QueueName: &r.QueueName,
+		})
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		r.QueueURL = *result.QueueUrl
 	}
-
-	r.QueueURL = *result.QueueUrl
 }
 
 func (r *SqsTest) Run() {
@@ -51,9 +67,9 @@ func (r *SqsTest) Run() {
 	var receive *sqs.ReceiveMessageOutput
 	receive, err = r.SQSService.ReceiveMessage(&sqs.ReceiveMessageInput{
 		QueueUrl:            &r.QueueURL,
-		MaxNumberOfMessages: aws.Int64(1),
-		VisibilityTimeout:   aws.Int64(20),  // 20 seconds
-		WaitTimeSeconds:     aws.Int64(0),
+		MaxNumberOfMessages: aws.Int64(10),
+		//VisibilityTimeout:   aws.Int64(20), // 20 seconds
+		WaitTimeSeconds: aws.Int64(20),
 	})
 
 	if err != nil {
@@ -64,15 +80,19 @@ func (r *SqsTest) Run() {
 	if len(receive.Messages) == 0 {
 		log.Fatal("Zero messages received")
 	}
+
 }
 
 func (r *SqsTest) Teardown() {
-	_, err := r.SQSService.DeleteQueue(&sqs.DeleteQueueInput{
-		QueueUrl: &r.QueueURL,
-	})
 
-	if err != nil {
-		log.Fatal("Error", err)
-		return
+	if r.QueueName == "" {
+		_, err := r.SQSService.DeleteQueue(&sqs.DeleteQueueInput{
+			QueueUrl: &r.QueueURL,
+		})
+
+		if err != nil {
+			log.Fatal("Error", err)
+			return
+		}
 	}
 }
